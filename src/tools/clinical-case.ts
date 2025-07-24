@@ -7,7 +7,15 @@ interface PatientInfo {
   genetic_markers?: string[];
 }
 
+import { NursingDatabase } from '../data/nursing-database.js';
+
 export class ClinicalCaseTool {
+  private db: NursingDatabase;
+  
+  constructor() {
+    this.db = new NursingDatabase();
+  }
+  
   async execute(args: {
     patient_info: PatientInfo;
     symptoms: string[];
@@ -32,16 +40,83 @@ export class ClinicalCaseTool {
     symptoms: string[],
     context: string
   ) {
+    // Get suggested nursing diagnoses based on symptoms
+    const suggestedDiagnoses = this.db.suggestNursingDiagnoses(symptoms);
+    
+    // Get relevant medications based on diagnosis
+    const relevantMedications = this.getRelevantMedications(patientInfo, symptoms);
+    
+    // Get relevant lab values to monitor
+    const relevantLabs = this.getRelevantLabs(patientInfo, symptoms);
+    
     return {
       patient_summary: this.generatePatientSummary(patientInfo),
       symptom_analysis: this.analyzeSymptoms(symptoms),
+      nursing_diagnoses: suggestedDiagnoses,
       nursing_priorities: this.identifyNursingPriorities(patientInfo, symptoms),
       recommended_interventions: this.recommendInterventions(patientInfo, symptoms, context),
+      medications: relevantMedications,
+      lab_values: relevantLabs,
       monitoring_parameters: this.identifyMonitoringParameters(patientInfo, symptoms),
       patient_education: this.generatePatientEducation(patientInfo, symptoms),
       expected_outcomes: this.defineExpectedOutcomes(patientInfo, symptoms),
       risk_factors: this.identifyRiskFactors(patientInfo, symptoms)
     };
+  }
+  
+  private getRelevantMedications(patientInfo: PatientInfo, symptoms: string[]) {
+    const medications: any[] = [];
+    
+    // Pain management
+    if (symptoms.includes('통증') || symptoms.includes('pain')) {
+      const morphine = this.db.getMedication('morphine');
+      if (morphine) medications.push(morphine);
+    }
+    
+    // Nausea/vomiting
+    if (symptoms.includes('오심') || symptoms.includes('구토')) {
+      // Add antiemetics (would need to add to medication database)
+    }
+    
+    // Based on diagnosis
+    if (patientInfo.diagnosis.includes('암') || patientInfo.diagnosis.includes('cancer')) {
+      const cyclophosphamide = this.db.getMedication('cyclophosphamide');
+      if (cyclophosphamide) medications.push(cyclophosphamide);
+    }
+    
+    return medications;
+  }
+  
+  private getRelevantLabs(patientInfo: PatientInfo, symptoms: string[]) {
+    const labs: any[] = [];
+    
+    // Basic labs for all patients
+    const hemoglobin = this.db.getLabValue('hemoglobin');
+    const wbc = this.db.getLabValue('wbc');
+    if (hemoglobin) labs.push(hemoglobin);
+    if (wbc) labs.push(wbc);
+    
+    // Dehydration/fluid loss
+    if (symptoms.includes('구토') || symptoms.includes('설사')) {
+      const sodium = this.db.getLabValue('sodium');
+      const potassium = this.db.getLabValue('potassium');
+      const bun = this.db.getLabValue('bun');
+      const creatinine = this.db.getLabValue('creatinine');
+      if (sodium) labs.push(sodium);
+      if (potassium) labs.push(potassium);
+      if (bun) labs.push(bun);
+      if (creatinine) labs.push(creatinine);
+    }
+    
+    // Cancer patients
+    if (patientInfo.diagnosis.includes('암') || patientInfo.diagnosis.includes('cancer')) {
+      const platelet = this.db.getLabValue('platelet');
+      const alt = this.db.getLabValue('alt');
+      if (platelet) labs.push(platelet);
+      if (alt) labs.push(alt);
+    }
+    
+    return labs;
   }
   
   private generatePatientSummary(patientInfo: PatientInfo): string {
@@ -243,22 +318,58 @@ export class ClinicalCaseTool {
   }
   
   private formatCaseAnalysis(analysis: any): string {
-    return `
-# 📋 임상 사례 분석
+    let response = `# 📋 임상 사례 분석
 
 ## 👤 환자 정보
 ${analysis.patient_summary}
 
 ## 🔍 증상 분석
 ${analysis.symptom_analysis.map((s: string) => `- ${s}`).join('\n')}
+`;
 
-## 🎯 간호 우선순위
+    // Add nursing diagnoses if available
+    if (analysis.nursing_diagnoses && analysis.nursing_diagnoses.length > 0) {
+      response += `\n## 🏥 간호진단 (NANDA)\n`;
+      analysis.nursing_diagnoses.forEach((diag: any, index: number) => {
+        response += `### ${index + 1}. [${diag.code}] ${diag.labelKorean}\n`;
+        response += `**정의**: ${diag.definition}\n`;
+        response += `**우선순위 중재**:\n`;
+        diag.nursingInterventions.priority.slice(0, 3).forEach((int: string) => {
+          response += `- ${int}\n`;
+        });
+        response += '\n';
+      });
+    }
+
+    response += `## 🎯 간호 우선순위
 ${analysis.nursing_priorities.map((p: string, i: number) => `${i + 1}. ${p}`).join('\n')}
 
 ## 🏥 권장 간호중재
 ${analysis.recommended_interventions.map((i: string) => `- ${i}`).join('\n')}
+`;
 
-## 📊 모니터링 지표
+    // Add medications if available
+    if (analysis.medications && analysis.medications.length > 0) {
+      response += `\n## 💊 관련 약물\n`;
+      analysis.medications.forEach((med: any) => {
+        response += `### ${med.nameKorean} (${med.name})\n`;
+        response += `- **용법**: ${med.dosage.adult}\n`;
+        response += `- **주요 부작용**: ${med.sideEffects.common.slice(0, 3).join(', ')}\n`;
+        response += `- **간호 고려사항**: ${med.nursingConsiderations[0]}\n\n`;
+      });
+    }
+
+    // Add lab values if available
+    if (analysis.lab_values && analysis.lab_values.length > 0) {
+      response += `\n## 🔬 모니터링 검사\n`;
+      analysis.lab_values.forEach((lab: any) => {
+        response += `### ${lab.nameKorean}\n`;
+        response += `- **정상범위**: ${lab.normalRange.adult.general || lab.normalRange.adult.male || ''}\n`;
+        response += `- **간호 고려사항**: ${lab.nursingConsiderations[0]}\n\n`;
+      });
+    }
+
+    response += `## 📊 모니터링 지표
 ${analysis.monitoring_parameters.map((m: string) => `- ${m}`).join('\n')}
 
 ## 📚 환자 교육
@@ -273,5 +384,6 @@ ${analysis.risk_factors.map((r: string) => `- ${r}`).join('\n')}
 ---
 *분석 완료 시간: ${new Date().toLocaleString('ko-KR')}*
 `;
+    return response;
   }
 }

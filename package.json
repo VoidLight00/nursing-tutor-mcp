@@ -1,7 +1,7 @@
 {
   "name": "nursing-tutor-mcp",
-  "version": "1.0.0",
-  "description": "간호사 1대1 과외수업을 위한 MCP 시스템 - 종양간호, 유전자치료, 임상시험 전문 과정",
+  "version": "2.0.0",
+  "description": "한국 간호사를 위한 종합 임상 실무 지원 MCP 서버 - 실제 의료 데이터베이스 기반",
   "main": "dist/index.js",
   "type": "module",
   "bin": {

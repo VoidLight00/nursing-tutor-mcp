@@ -1,8 +1,21 @@
+import { MedicationDatabase } from './nursing-medications.js';
+import { LabValuesDatabase } from './lab-values.js';
+import { NursingDiagnosesDatabase } from './nursing-diagnoses.js';
+import { ClinicalProtocolsDatabase } from './clinical-protocols.js';
+
 export class NursingDatabase {
   private knowledgeBase: Map<string, any>;
+  private medicationDb: MedicationDatabase;
+  private labValuesDb: LabValuesDatabase;
+  private nursingDiagnosesDb: NursingDiagnosesDatabase;
+  private protocolsDb: ClinicalProtocolsDatabase;
   
   constructor() {
     this.knowledgeBase = new Map();
+    this.medicationDb = new MedicationDatabase();
+    this.labValuesDb = new LabValuesDatabase();
+    this.nursingDiagnosesDb = new NursingDiagnosesDatabase();
+    this.protocolsDb = new ClinicalProtocolsDatabase();
     this.initializeDatabase();
   }
   
@@ -272,5 +285,61 @@ export class NursingDatabase {
       specialized_applications: keywords.map(keyword => `${keyword} 관련 실무 적용`),
       specialty_considerations: `${specialty} 분야의 특별한 고려사항들`
     };
+  }
+
+  // 약물 데이터베이스 접근 메서드
+  getMedication(id: string) {
+    return this.medicationDb.getMedication(id);
+  }
+
+  searchMedications(query: string) {
+    return this.medicationDb.searchMedications(query);
+  }
+
+  getMedicationsByCategory(category: string) {
+    return this.medicationDb.getMedicationsByCategory(category);
+  }
+
+  // 검사 수치 데이터베이스 접근 메서드
+  getLabValue(id: string) {
+    return this.labValuesDb.getLabValue(id);
+  }
+
+  searchLabValues(query: string) {
+    return this.labValuesDb.searchLabValues(query);
+  }
+
+  interpretLabValue(labId: string, value: number, gender?: 'male' | 'female') {
+    return this.labValuesDb.interpretValue(labId, value, gender);
+  }
+
+  getCriticalAlerts(labId: string, value: number) {
+    return this.labValuesDb.getCriticalAlerts(labId, value);
+  }
+
+  // 간호진단 데이터베이스 접근 메서드
+  getNursingDiagnosis(code: string) {
+    return this.nursingDiagnosesDb.getDiagnosis(code);
+  }
+
+  searchNursingDiagnoses(query: string) {
+    return this.nursingDiagnosesDb.searchDiagnoses(query);
+  }
+
+  suggestNursingDiagnoses(symptoms: string[]) {
+    return this.nursingDiagnosesDb.suggestDiagnoses(symptoms);
+  }
+
+  // 임상 프로토콜 데이터베이스 접근 메서드
+  getClinicalProtocol(id: string) {
+    return this.protocolsDb.getProtocol(id);
+  }
+
+  searchClinicalProtocols(query: string) {
+    return this.protocolsDb.searchProtocols(query);
+  }
+
+  getProtocolsByCategory(category: string) {
+    return this.protocolsDb.getProtocolsByCategory(category);
   }
 }

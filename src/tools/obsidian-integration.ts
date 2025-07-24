@@ -1,11 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 export class ObsidianIntegrationTool {
   private obsidianVault: string;
   
   constructor() {
-    this.obsidianVault = process.env.OBSIDIAN_VAULT_PATH || './obsidian-vault';
+    // Default to a folder in user's home directory to avoid permission issues
+    this.obsidianVault = process.env.OBSIDIAN_VAULT_PATH || 
+                         path.join(os.homedir(), 'Documents', 'NursingTutorVault');
   }
   
   async execute(args: {
@@ -17,11 +20,25 @@ export class ObsidianIntegrationTool {
     
     const note = await this.createObsidianNote(note_type, content, tags);
     
+    let message = `✅ 옵시디언 노트가 생성되었습니다!\n\n**파일명**: ${note.filename}\n**위치**: ${note.path}\n\n`;
+    
+    if ((note as any).error) {
+      message += `⚠️ **주의**: ${(note as any).error}\n\n`;
+    }
+    
+    message += `**미리보기**:\n${note.preview}\n\n**연결된 태그**: ${tags.join(', ')}\n\n`;
+    
+    if (!(note as any).error) {
+      message += `노트가 성공적으로 생성되어 옵시디언 볼트에 저장되었습니다.`;
+    } else {
+      message += `노트를 옵시디언에서 열려면 위 경로의 파일을 옵시디언 볼트로 복사하세요.`;
+    }
+    
     return {
       content: [
         {
           type: 'text',
-          text: `✅ 옵시디언 노트가 생성되었습니다!\n\n**파일명**: ${note.filename}\n**위치**: ${note.path}\n\n**미리보기**:\n${note.preview}\n\n**연결된 태그**: ${tags.join(', ')}\n\n노트가 성공적으로 생성되어 옵시디언 볼트에 저장되었습니다.`
+          text: message
         }
       ]
     };
@@ -39,12 +56,30 @@ export class ObsidianIntegrationTool {
     const noteContent = this.generateNoteContent(type, content, tags);
     const notePath = path.join(this.obsidianVault, filename);
     
-    this.ensureDirectoryExists(this.obsidianVault);
-    
     try {
+      this.ensureDirectoryExists(this.obsidianVault);
       await fs.promises.writeFile(notePath, noteContent, 'utf8');
     } catch (error) {
       console.error('옵시디언 노트 생성 중 오류:', error);
+      
+      // If permission error, try alternative location
+      if ((error as any).code === 'EACCES' || (error as any).code === 'EPERM') {
+        const altPath = path.join(os.tmpdir(), 'nursing-tutor-notes');
+        this.ensureDirectoryExists(altPath);
+        const altNotePath = path.join(altPath, filename);
+        await fs.promises.writeFile(altNotePath, noteContent, 'utf8');
+        
+        return {
+          filename,
+          path: altNotePath,
+          content: noteContent,
+          preview: this.generatePreview(content, type),
+          tags: tags,
+          error: '원래 위치에 권한 문제로 임시 폴더에 저장되었습니다.'
+        };
+      }
+      
+      throw error;
     }
     
     return {
